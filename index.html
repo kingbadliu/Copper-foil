@@ -56,10 +56,12 @@
 
   .qty-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
   .qty-label { font-size:14px; color:var(--text-muted); min-width:60px; }
-  .qty-ctrl  { display:flex; align-items:center; gap:12px; }
-  .qty-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--gray-bg); font-size:20px; cursor:pointer; color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .qty-ctrl  { display:flex; align-items:center; gap:10px; flex:1; }
+  .qty-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--gray-bg); font-size:20px; cursor:pointer; color:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .qty-btn:active { background:var(--border); }
-  .qty-num { font-size:24px; font-weight:700; min-width:36px; text-align:center; }
+  .qty-input { font-size:22px; font-weight:700; width:80px; text-align:center; border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:4px 8px; background:var(--gray-bg); color:var(--text); }
+  .qty-input:focus { outline:none; border-color:var(--green); }
+  .required-star { color:var(--red); margin-left:2px; }
 
   .name-input { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--gray-bg); color:var(--text); margin-bottom:16px; }
   .name-input:focus { outline:none; border-color:var(--green); }
@@ -143,11 +145,16 @@
       <span class="qty-label">數量（張）</span>
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="changeQty(-1)">−</button>
-        <span class="qty-num" id="qty-num">1</span>
+        <input class="qty-input" id="qty-input" type="number" min="1" value="1" oninput="syncQty(this.value)" />
         <button class="qty-btn" onclick="changeQty(1)">＋</button>
       </div>
     </div>
-    <input class="name-input" id="name-input" type="text" placeholder="姓名（選填）" />
+    <div style="margin-bottom:16px;">
+      <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:6px;">
+        姓名<span class="required-star">*</span>
+      </label>
+      <input class="name-input" id="name-input" type="text" placeholder="請輸入姓名" style="margin-bottom:0;" />
+    </div>
     <button class="submit-btn" id="submit-btn" onclick="submitForm()">確認送出</button>
   </div>
 </div>
@@ -178,7 +185,7 @@
 //  ★ 設定你的 Apps Script 網址（部署後貼在這裡）
 //    設定後所有員工掃 QR Code 就能直接使用，不需再輸入網址
 // ══════════════════════════════════════════════════════
-const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbxhdbUzANgtKHaJmBIYjmf_0Svf2pzWykgZb__Jv_PSHMiWypd5Fk6GiMF_L4Fu72WBbg/exec';   // ← 把你的網址貼在這兩個引號之間
+const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbylNPSaxaIdNjhC1PxXMMLlbdiQlpfX3-vj9CALkx_YDO9mdfYqTC9f-mdDbCjJ6tQHhQ/exec';
 
 // ──────────────────────────────────────────────────────
 const STORAGE_KEY = 'cf_api_url_v3';
@@ -273,7 +280,7 @@ function renderFoilList() {
 function selectFoil(index) {
   selectedIndex = index;
   qty = 1;
-  document.getElementById('qty-num').textContent = qty;
+  document.getElementById('qty-input').value = qty;
   const f = allFoils.find(x => x.index === index);
   document.getElementById('selected-label').textContent = `${f.model}（${f.grade} ${f.thick} ${f.brand}）`;
   document.getElementById('form-card').style.display = 'block';
@@ -290,13 +297,25 @@ function setAction(a) {
 
 function changeQty(d) {
   qty = Math.max(1, qty + d);
-  document.getElementById('qty-num').textContent = qty;
+  document.getElementById('qty-input').value = qty;
+}
+
+function syncQty(val) {
+  const v = parseInt(val, 10);
+  qty = isNaN(v) || v < 1 ? 1 : v;
 }
 
 // ── 送出（改用 GET，解決 CORS）──────────────────────────
 async function submitForm() {
   if (selectedIndex === null) return;
-  const name = document.getElementById('name-input').value.trim() || '匿名';
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) {
+    document.getElementById('name-input').focus();
+    document.getElementById('name-input').style.borderColor = 'var(--red)';
+    showToast('⚠️ 請輸入姓名');
+    return;
+  }
+  document.getElementById('name-input').style.borderColor = '';
   const btn  = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = '送出中...';
 
