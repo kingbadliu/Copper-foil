@@ -309,11 +309,37 @@ function logout() {
   document.getElementById('pw-error').textContent = '';
 }
 
+// ── JSONP 呼叫（解決 Chrome/Edge CORS 問題）──────────────
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    const script = document.createElement('script');
+    const timer  = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout'));
+    }, 10000);
+
+    window[cbName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    script.onerror = () => { cleanup(); reject(new Error('script error')); };
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
+    document.head.appendChild(script);
+  });
+}
+
 // ── 讀取庫存 ───────────────────────────────────────────
 async function loadFoils() {
   try {
-    const res  = await fetch(`${API_URL}?action=getStock`);
-    const data = await res.json();
+    const data = await jsonp(`${API_URL}?action=getStock`);
     allFoils = data.foils;
     buildGradeFilter();
     renderFoilList();
@@ -383,7 +409,7 @@ function syncQty(val) {
   qty = isNaN(v) || v < 1 ? 1 : v;
 }
 
-// ── 送出（改用 GET，解決 CORS）──────────────────────────
+// ── 送出（JSONP，解決 CORS）───────────────────────────
 async function submitForm() {
   if (selectedIndex === null) return;
   const name = document.getElementById('name-input').value.trim();
@@ -399,8 +425,7 @@ async function submitForm() {
 
   try {
     const url  = `${API_URL}?action=update&rowIndex=${selectedIndex}&op=${action}&qty=${qty}&name=${encodeURIComponent(name)}`;
-    const res  = await fetch(url);
-    const data = await res.json();
+    const data = await jsonp(url);
 
     if (data.success) {
       const f = allFoils.find(x => x.index === selectedIndex);
@@ -423,12 +448,12 @@ async function submitForm() {
 // ── 儀表板 ─────────────────────────────────────────────
 async function loadDash() {
   try {
-    const [sr, lr] = await Promise.all([
-      fetch(`${API_URL}?action=getStock`),
-      fetch(`${API_URL}?action=getLogs`)
+    const [sd, ld] = await Promise.all([
+      jsonp(`${API_URL}?action=getStock`),
+      jsonp(`${API_URL}?action=getLogs`)
     ]);
-    renderDashFoils((await sr.json()).foils);
-    renderLogs((await lr.json()).logs);
+    renderDashFoils(sd.foils);
+    renderLogs(ld.logs);
     const now = new Date();
     document.getElementById('last-refresh').innerHTML =
       `上次更新：${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}` +
