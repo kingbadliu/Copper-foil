@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>壓合室銅箔庫存系統</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green      : #1D9E75; --green-light: #E1F5EE; --green-dark : #0F6E56;
+    --blue       : #378ADD; --blue-light : #E6F1FB; --blue-dark  : #185FA5;
+    --amber-light: #FAEEDA; --amber: #EF9F27;       --amber-dark : #854F0B;
+    --red-light  : #FCEBEB; --red  : #E24B4A;       --red-dark   : #A32D2D;
+    --gray-bg: #F5F5F3; --border: #E0DED8;
+    --text: #1A1A18; --text-muted: #6B6A65; --text-hint: #A09F9A;
+    --white: #FFFFFF; --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: -apple-system,'Noto Sans TC',sans-serif; background:var(--gray-bg); color:var(--text); min-height:100vh; }
+
+  header { background:var(--white); border-bottom:1px solid var(--border); padding:14px 20px; position:sticky; top:0; z-index:100; }
+  .header-title { font-size:16px; font-weight:600; }
+  .header-sub   { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+  .tab-bar { display:flex; background:var(--white); border-bottom:1px solid var(--border); position:sticky; top:61px; z-index:99; }
+  .tab { flex:1; padding:12px; text-align:center; font-size:14px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:transparent; border-bottom:3px solid transparent; transition:all .15s; }
+  .tab.active { color:var(--green-dark); border-bottom-color:var(--green); }
+
+  .page { display:none; padding:16px; max-width:640px; margin:0 auto; }
+  .page.active { display:block; }
+  .card { background:var(--white); border-radius:var(--radius); border:1px solid var(--border); padding:16px; margin-bottom:12px; }
+  .section-label { font-size:12px; font-weight:600; color:var(--text-muted); letter-spacing:.06em; text-transform:uppercase; margin-bottom:12px; }
+
+  .filter-row { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .filter-chip { padding:5px 14px; border-radius:20px; border:1.5px solid var(--border); background:transparent; font-size:13px; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .15s; }
+  .filter-chip.active { border-color:var(--green); background:var(--green-light); color:var(--green-dark); }
+
+  .foil-list { display:flex; flex-direction:column; gap:8px; }
+  .foil-item { border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; cursor:pointer; background:var(--white); transition:all .15s; display:flex; justify-content:space-between; align-items:center; }
+  .foil-item:active { transform:scale(0.98); }
+  .foil-item.selected { border-color:var(--green); background:var(--green-light); }
+  .foil-model { font-size:15px; font-weight:700; color:var(--text); }
+  .foil-meta  { font-size:12px; color:var(--text-muted); margin-top:3px; }
+  .foil-item-right { text-align:right; flex-shrink:0; margin-left:12px; }
+  .foil-stock-num  { font-size:24px; font-weight:700; color:var(--text); line-height:1.1; }
+  .foil-stock-unit { font-size:12px; color:var(--text-muted); }
+
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; margin-top:5px; font-weight:500; }
+  .badge-ok       { background:var(--green-light); color:var(--green-dark); }
+  .badge-low      { background:var(--amber-light); color:var(--amber-dark); }
+  .badge-critical { background:var(--red-light);   color:var(--red-dark);   }
+
+  .action-row { display:flex; gap:8px; margin-bottom:14px; }
+  .action-opt { flex:1; padding:10px 8px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:transparent; font-size:14px; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .15s; }
+  .action-opt.sel-take { border-color:var(--green); background:var(--green-light); color:var(--green-dark); }
+  .action-opt.sel-add  { border-color:var(--blue);  background:var(--blue-light);  color:var(--blue-dark);  }
+
+  .qty-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+  .qty-label { font-size:14px; color:var(--text-muted); min-width:60px; }
+  .qty-ctrl  { display:flex; align-items:center; gap:10px; flex:1; }
+  .qty-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--gray-bg); font-size:20px; cursor:pointer; color:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .qty-btn:active { background:var(--border); }
+  .qty-input { font-size:22px; font-weight:700; width:80px; text-align:center; border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:4px 8px; background:var(--gray-bg); color:var(--text); }
+  .qty-input:focus { outline:none; border-color:var(--green); }
+  .required-star { color:var(--red); margin-left:2px; }
+
+  .name-input { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--gray-bg); color:var(--text); margin-bottom:16px; }
+  .name-input:focus { outline:none; border-color:var(--green); }
+
+  .submit-btn { width:100%; padding:14px; background:var(--text); color:var(--white); border:none; border-radius:var(--radius-sm); font-size:15px; font-weight:600; cursor:pointer; transition:opacity .15s; }
+  .submit-btn:hover { opacity:.85; }
+  .submit-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* API 設定區（只有未設定時才顯示） */
+  .setup-card { background:var(--blue-light); border:1px solid #85B7EB; border-radius:var(--radius); padding:16px; margin-bottom:12px; }
+  .setup-title { font-size:14px; font-weight:600; color:var(--blue-dark); margin-bottom:8px; }
+  .setup-desc  { font-size:13px; color:var(--blue-dark); line-height:1.6; margin-bottom:10px; }
+  .url-input { width:100%; padding:10px 12px; border:1.5px solid #85B7EB; border-radius:var(--radius-sm); font-size:13px; background:var(--white); color:var(--text); margin-bottom:8px; }
+  .url-input:focus { outline:none; border-color:var(--blue); }
+  .save-url-btn { padding:9px 20px; background:var(--blue); color:var(--white); border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:600; cursor:pointer; }
+
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--text); color:var(--white); padding:12px 24px; border-radius:40px; font-size:14px; font-weight:500; z-index:999; transition:transform .3s ease; white-space:nowrap; pointer-events:none; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  .alert-banner { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:var(--radius-sm); font-size:13px; line-height:1.6; margin-bottom:12px; border:1px solid; }
+  .alert-low      { background:var(--amber-light); border-color:#FAC775; color:var(--amber-dark); }
+  .alert-critical { background:var(--red-light);   border-color:#F09595; color:var(--red-dark); }
+  .alert-dot { width:8px; height:8px; border-radius:50%; margin-top:4px; flex-shrink:0; }
+
+  .stat-row { display:flex; gap:10px; margin-bottom:12px; }
+  .stat-card { flex:1; background:var(--white); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; text-align:center; }
+  .stat-num   { font-size:24px; font-weight:700; }
+  .stat-label { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+  .log-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .log-item:last-child { border-bottom:none; }
+  .log-model { font-weight:600; color:var(--text); }
+  .log-meta  { font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .log-take  { color:var(--red-dark); font-weight:700; }
+  .log-add   { color:var(--blue-dark); font-weight:700; }
+  .log-time  { font-size:11px; color:var(--text-hint); margin-top:2px; }
+
+  .loading-row { text-align:center; padding:24px; color:var(--text-muted); font-size:14px; }
+  .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* 密碼保護遮罩 */
+  .lock-overlay { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 24px; text-align:center; }
+  .lock-icon  { font-size:52px; margin-bottom:16px; }
+  .lock-title { font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; }
+  .lock-desc  { font-size:13px; color:var(--text-muted); margin-bottom:24px; }
+  .pw-row     { display:flex; gap:8px; width:100%; max-width:300px; }
+  .pw-input   { flex:1; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:15px; background:var(--gray-bg); color:var(--text); letter-spacing:.15em; }
+  .pw-input:focus { outline:none; border-color:var(--green); }
+  .pw-btn     { padding:11px 18px; background:var(--text); color:var(--white); border:none; border-radius:var(--radius-sm); font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .pw-btn:hover { opacity:.85; }
+  .pw-error   { font-size:13px; color:var(--red-dark); margin-top:10px; min-height:18px; }
+  .lock-hint  { font-size:12px; color:var(--text-hint); margin-top:20px; }
+  .logout-btn { font-size:12px; padding:3px 12px; border:1px solid var(--border); border-radius:20px; background:transparent; color:var(--text-muted); cursor:pointer; margin-left:10px; }
+  .logout-btn:hover { background:var(--gray-bg); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">壓合室銅箔庫存</div>
+  <div class="header-sub" id="header-sub">載入中...</div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('form',this)">員工填報</button>
+  <button class="tab" onclick="switchTab('dash',this)">管理者儀表板</button>
+</div>
+
+<!-- 員工填報 -->
+<div id="form" class="page active">
+
+  <!-- 只有未設定 API 時才顯示 -->
+  <div id="setup-card" class="setup-card" style="display:none;">
+    <div class="setup-title">⚙️ 首次設定</div>
+    <div class="setup-desc">請輸入 Google Apps Script 部署網址，設定後即永久儲存，員工不需再設定。</div>
+    <input class="url-input" id="api-url-input" placeholder="https://script.google.com/macros/s/xxxxx/exec" />
+    <button class="save-url-btn" onclick="saveApiUrl()">儲存並載入</button>
+  </div>
+
+  <div class="card">
+    <div class="section-label">選擇銅箔</div>
+    <div class="filter-row" id="grade-filter"></div>
+    <div class="foil-list" id="foil-list">
+      <div class="loading-row"><span class="spinner"></span>讀取中...</div>
+    </div>
+  </div>
+
+  <div class="card" id="form-card" style="display:none;">
+    <div class="section-label" id="selected-label">已選擇</div>
+    <div class="action-row">
+      <button class="action-opt sel-take" id="btn-take" onclick="setAction('take')">領取使用</button>
+      <button class="action-opt" id="btn-add"  onclick="setAction('add')">補貨入庫</button>
+    </div>
+    <div class="qty-row">
+      <span class="qty-label">數量（張）</span>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty(-1)">−</button>
+        <input class="qty-input" id="qty-input" type="number" min="1" value="1" oninput="syncQty(this.value)" />
+        <button class="qty-btn" onclick="changeQty(1)">＋</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:6px;">
+        姓名<span class="required-star">*</span>
+      </label>
+      <input class="name-input" id="name-input" type="text" placeholder="請輸入姓名" style="margin-bottom:0;" />
+    </div>
+    <button class="submit-btn" id="submit-btn" onclick="submitForm()">確認送出</button>
+  </div>
+</div>
+
+<!-- 管理者儀表板 -->
+<div id="dash" class="page">
+
+  <!-- 密碼輸入畫面 -->
+  <div id="lock-screen" class="card lock-overlay">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">管理者專區</div>
+    <div class="lock-desc">請輸入密碼以查看庫存儀表板</div>
+    <div class="pw-row">
+      <input class="pw-input" id="pw-input" type="password" placeholder="••••••"
+             onkeydown="if(event.key==='Enter')checkPassword()" />
+      <button class="pw-btn" onclick="checkPassword()">進入</button>
+    </div>
+    <div class="pw-error" id="pw-error"></div>
+    <div class="lock-hint">忘記密碼請聯絡系統管理員</div>
+  </div>
+
+  <!-- 儀表板內容（解鎖後顯示） -->
+  <div id="dash-content" style="display:none;">
+    <div id="alert-area"></div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num" id="st-total">—</div><div class="stat-label">種類數</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-low" style="color:var(--amber-dark)">—</div><div class="stat-label">庫存偏低</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-crit" style="color:var(--red-dark)">—</div><div class="stat-label">嚴重不足</div></div>
+    </div>
+    <div class="card">
+      <div class="section-label">即時庫存</div>
+      <div class="foil-list" id="dash-list"><div class="loading-row"><span class="spinner"></span>讀取中...</div></div>
+    </div>
+    <div class="card">
+      <div class="section-label">最新操作紀錄</div>
+      <div id="log-list"><div class="loading-row"><span class="spinner"></span>讀取中...</div></div>
+    </div>
+    <div style="text-align:center;margin:8px 0 24px;color:var(--text-hint);font-size:12px;" id="last-refresh"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  ★ 設定你的 Apps Script 網址（部署後貼在這裡）
+//    設定後所有員工掃 QR Code 就能直接使用，不需再輸入網址
+// ══════════════════════════════════════════════════════
+const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbxhdbUzANgtKHaJmBIYjmf_0Svf2pzWykgZb__Jv_PSHMiWypd5Fk6GiMF_L4Fu72WBbg/exec';
+
+// ──────────────────────────────────────────────────────
+const STORAGE_KEY = 'cf_api_url_v3';
+let API_URL = HARDCODED_URL || localStorage.getItem(STORAGE_KEY) || '';
+
+let allFoils      = [];
+let selectedIndex = null;
+let qty           = 1;
+let action        = 'take';
+let activeGrade   = 'ALL';
+
+// ── 初始化 ─────────────────────────────────────────────
+window.addEventListener('load', () => {
+  if (!API_URL) {
+    document.getElementById('setup-card').style.display = 'block';
+    document.getElementById('foil-list').innerHTML =
+      '<div style="color:var(--text-hint);font-size:13px;padding:8px 0;">請先完成上方 API 設定</div>';
+  } else {
+    loadFoils();
+  }
+});
+
+function saveApiUrl() {
+  const val = document.getElementById('api-url-input').value.trim();
+  if (!val.startsWith('https://script.google.com')) {
+    showToast('請貼上正確的 Apps Script 網址'); return;
+  }
+  API_URL = val;
+  localStorage.setItem(STORAGE_KEY, API_URL);
+  document.getElementById('setup-card').style.display = 'none';
+  loadFoils();
+}
+
+// ══════════════════════════════════════════════════════
+//  ★ 管理者密碼（請改成你自己的密碼）
+// ══════════════════════════════════════════════════════
+const ADMIN_PASSWORD = 'admin1234';  // ← 改成你的密碼
+
+// ── Tab ────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(name).classList.add('active');
+  if (name === 'dash') {
+    // 檢查本次 session 是否已解鎖
+    if (sessionStorage.getItem('dash_unlocked') === '1') {
+      showDashContent();
+      loadDash();
+    } else {
+      document.getElementById('lock-screen').style.display = 'flex';
+      document.getElementById('dash-content').style.display = 'none';
+      setTimeout(() => document.getElementById('pw-input').focus(), 100);
+    }
+  }
+}
+
+function checkPassword() {
+  const input = document.getElementById('pw-input').value;
+  const errEl = document.getElementById('pw-error');
+  if (input === ADMIN_PASSWORD) {
+    sessionStorage.setItem('dash_unlocked', '1');
+    document.getElementById('pw-input').value = '';
+    errEl.textContent = '';
+    showDashContent();
+    loadDash();
+  } else {
+    errEl.textContent = '密碼錯誤，請再試一次';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+    // 短暫震動提示
+    const input = document.getElementById('pw-input');
+    input.style.borderColor = 'var(--red)';
+    setTimeout(() => input.style.borderColor = '', 1000);
+  }
+}
+
+function showDashContent() {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('dash-content').style.display = 'block';
+}
+
+function logout() {
+  sessionStorage.removeItem('dash_unlocked');
+  document.getElementById('dash-content').style.display = 'none';
+  document.getElementById('lock-screen').style.display = 'flex';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-error').textContent = '';
+}
+
+// ── 讀取庫存 ───────────────────────────────────────────
+async function loadFoils() {
+  try {
+    const res  = await fetch(`${API_URL}?action=getStock`);
+    const data = await res.json();
+    allFoils = data.foils;
+    buildGradeFilter();
+    renderFoilList();
+    updateHeaderTime();
+  } catch (e) {
+    document.getElementById('foil-list').innerHTML =
+      '<div style="color:var(--red-dark);font-size:13px;padding:8px 0;">❌ 無法連線，請確認 API 網址或網路。</div>';
+  }
+}
+
+function buildGradeFilter() {
+  const grades = ['ALL', ...new Set(allFoils.map(f => f.grade))];
+  document.getElementById('grade-filter').innerHTML = grades.map(g =>
+    `<button class="filter-chip ${g === activeGrade ? 'active' : ''}" onclick="setGrade('${g}')">
+      ${g === 'ALL' ? '全部' : g}
+    </button>`
+  ).join('');
+}
+
+function setGrade(g) {
+  activeGrade = g;
+  buildGradeFilter();
+  renderFoilList();
+}
+
+function renderFoilList() {
+  const filtered = activeGrade === 'ALL' ? allFoils : allFoils.filter(f => f.grade === activeGrade);
+  document.getElementById('foil-list').innerHTML = filtered.map(f => {
+    const sel = selectedIndex === f.index ? 'selected' : '';
+    return `<div class="foil-item ${sel}" onclick="selectFoil(${f.index})">
+      <div>
+        <div class="foil-model">${f.model}</div>
+        <div class="foil-meta">${f.grade} · ${f.thick} · ${f.brand}</div>
+      </div>
+      <div class="foil-item-right">
+        <div style="font-size:22px;color:var(--text-muted);">›</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectFoil(index) {
+  selectedIndex = index;
+  qty = 1;
+  document.getElementById('qty-input').value = qty;
+  const f = allFoils.find(x => x.index === index);
+  document.getElementById('selected-label').textContent = `${f.model}（${f.grade} ${f.thick} ${f.brand}）`;
+  document.getElementById('form-card').style.display = 'block';
+  document.getElementById('name-input').value = '';
+  renderFoilList();
+  document.getElementById('form-card').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function setAction(a) {
+  action = a;
+  document.getElementById('btn-take').className = 'action-opt' + (a === 'take' ? ' sel-take' : '');
+  document.getElementById('btn-add').className  = 'action-opt' + (a === 'add'  ? ' sel-add'  : '');
+}
+
+function changeQty(d) {
+  qty = Math.max(1, qty + d);
+  document.getElementById('qty-input').value = qty;
+}
+
+function syncQty(val) {
+  const v = parseInt(val, 10);
+  qty = isNaN(v) || v < 1 ? 1 : v;
+}
+
+// ── 送出（改用 GET，解決 CORS）──────────────────────────
+async function submitForm() {
+  if (selectedIndex === null) return;
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) {
+    document.getElementById('name-input').focus();
+    document.getElementById('name-input').style.borderColor = 'var(--red)';
+    showToast('⚠️ 請輸入姓名');
+    return;
+  }
+  document.getElementById('name-input').style.borderColor = '';
+  const btn  = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '送出中...';
+
+  try {
+    const url  = `${API_URL}?action=update&rowIndex=${selectedIndex}&op=${action}&qty=${qty}&name=${encodeURIComponent(name)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.success) {
+      const f = allFoils.find(x => x.index === selectedIndex);
+      if (f) f.stock = data.newStock;
+      selectedIndex = null;
+      document.getElementById('form-card').style.display = 'none';
+      renderFoilList();
+      showToast(`✅ 已回報！${data.model} 剩餘 ${data.newStock} 張`);
+      updateHeaderTime();
+    } else {
+      showToast('❌ 送出失敗：' + (data.error || '未知錯誤'));
+    }
+  } catch (e) {
+    showToast('❌ 無法連線，請確認網路');
+  } finally {
+    btn.disabled = false; btn.textContent = '確認送出';
+  }
+}
+
+// ── 儀表板 ─────────────────────────────────────────────
+async function loadDash() {
+  try {
+    const [sr, lr] = await Promise.all([
+      fetch(`${API_URL}?action=getStock`),
+      fetch(`${API_URL}?action=getLogs`)
+    ]);
+    renderDashFoils((await sr.json()).foils);
+    renderLogs((await lr.json()).logs);
+    const now = new Date();
+    document.getElementById('last-refresh').innerHTML =
+      `上次更新：${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}` +
+      `<button class="logout-btn" onclick="logout()">登出</button>`;
+  } catch (e) {
+    document.getElementById('dash-list').innerHTML =
+      '<div style="color:var(--red-dark);font-size:13px;">❌ 無法連線。</div>';
+  }
+}
+
+function renderDashFoils(list) {
+  if (!list) return;
+  const low      = list.filter(f => f.stock > f.min && f.stock <= f.min * 2);
+  const critical = list.filter(f => f.stock <= f.min);
+  document.getElementById('st-total').textContent = list.length;
+  document.getElementById('st-low').textContent   = low.length;
+  document.getElementById('st-crit').textContent  = critical.length;
+
+  const area = document.getElementById('alert-area');
+  area.innerHTML = '';
+  if (critical.length)
+    area.innerHTML += `<div class="alert-banner alert-critical"><div class="alert-dot" style="background:var(--red)"></div><div><strong>嚴重不足：</strong>${critical.map(f=>`${f.model}（剩 ${f.stock} 張）`).join('、')}，請立即補貨！</div></div>`;
+  if (low.length)
+    area.innerHTML += `<div class="alert-banner alert-low"><div class="alert-dot" style="background:var(--amber)"></div><div><strong>庫存偏低：</strong>${low.map(f=>`${f.model}（剩 ${f.stock} 張）`).join('、')}，建議盡快補貨。</div></div>`;
+
+  document.getElementById('dash-list').innerHTML = list.map(f => {
+    const { cls, label } = getStatus(f);
+    return `<div class="foil-item">
+      <div>
+        <div class="foil-model">${f.model}</div>
+        <div class="foil-meta">${f.grade} · ${f.thick} · ${f.brand}</div>
+        <span class="badge ${cls}">${label}</span>
+      </div>
+      <div class="foil-item-right">
+        <div class="foil-stock-num">${f.stock}</div>
+        <div class="foil-stock-unit">張</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderLogs(logs) {
+  const el = document.getElementById('log-list');
+  if (!logs || !logs.length) {
+    el.innerHTML = '<div style="color:var(--text-hint);font-size:13px;padding:10px 0;">尚無操作紀錄</div>';
+    return;
+  }
+  el.innerHTML = logs.map(l => `
+    <div class="log-item">
+      <div>
+        <div class="log-model">${l.model}</div>
+        <div class="log-meta">${l.grade} · ${l.thick} · ${l.brand} · ${l.name}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="${l.action==='take'?'log-take':'log-add'}">${l.action==='take'?'−':'＋'}${l.qty} 張</div>
+        <div class="log-time">${l.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+function getStatus(f) {
+  if (f.stock === 0)        return { cls:'badge-critical', label:'已用盡' };
+  if (f.stock <= f.min)     return { cls:'badge-critical', label:'嚴重不足' };
+  if (f.stock <= f.min * 2) return { cls:'badge-low',      label:'庫存偏低' };
+  return                           { cls:'badge-ok',       label:'庫存正常' };
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function updateHeaderTime() {
+  const now = new Date();
+  document.getElementById('header-sub').textContent =
+    `${now.getMonth()+1}/${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 更新`;
+}
+</script>
+</body>
+</html>
