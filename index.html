@@ -433,7 +433,7 @@ async function submitForm() {
       selectedIndex = null;
       document.getElementById('form-card').style.display = 'none';
       renderFoilList();
-      showToast(`✅ 已回報！${data.model} 剩餘 ${data.newStock} 張`);
+      showToast(`✅ 已回報！${data.model} `);
       updateHeaderTime();
     } else {
       showToast('❌ 送出失敗：' + (data.error || '未知錯誤'));
